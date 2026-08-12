@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aliado · Tablero Operativo MVP</title>
+<style>
+:root{
+  --blue:#3155ff;--blue2:#173f91;--ink:#101828;--muted:#667085;--line:#e4e7ec;
+  --bg:#f5f7fb;--card:#fff;--good:#067647;--goodbg:#ecfdf3;--bad:#b42318;--badbg:#fef3f2;
+  --warn:#b54708;--warnbg:#fffaeb;--shadow:0 10px 30px rgba(16,24,40,.07)
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Roboto,Arial,sans-serif}
+button,input,select{font:inherit}.hidden{display:none!important}
+.login{min-height:100vh;display:grid;place-items:center;padding:28px;background:radial-gradient(circle at 82% 8%,#57a7ff 0,#3155ff 28%,#122b67 62%,#07101f 100%)}
+.login-card{width:min(440px,94vw);background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(18px);border-radius:30px;padding:34px;color:#fff;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+.brand{font-size:40px;font-weight:1000;letter-spacing:8px;margin:0 0 7px}.login-card h2{font-size:27px;margin:0 0 25px}
+.field{margin-top:14px}.field label{display:block;font-size:13px;margin-bottom:7px;opacity:.85}
+.field input{width:100%;height:52px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.1);color:#fff;border-radius:15px;padding:0 14px;outline:none}
+.field input::placeholder{color:rgba(255,255,255,.55)}
+.login-btn{width:100%;height:54px;border:0;border-radius:15px;margin-top:20px;background:#fff;color:#173f91;font-weight:1000;cursor:pointer}
+.login-msg{margin-top:12px;font-size:13px;line-height:1.4}
+.shell{min-height:100vh}
+.header{background:linear-gradient(135deg,#101929,#3155ff);color:#fff;padding:22px 28px}
+.header-inner{max-width:1500px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.logo{font-weight:1000;letter-spacing:5px}.logo small{display:block;letter-spacing:1px;font-weight:700;opacity:.7;margin-top:5px}
+.userbox{text-align:right;font-size:13px}.userbox b{display:block;font-size:15px}.logout{margin-top:6px;border:1px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff;border-radius:999px;padding:6px 12px;cursor:pointer}
+.page{max-width:1500px;margin:auto;padding:22px 24px 40px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:18px}
+.control{min-width:170px}.control label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:5px;font-weight:900}
+.control input,.control select{height:44px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:0 11px;font-weight:800;color:var(--ink)}
+.refresh{height:44px;border:0;border-radius:12px;padding:0 16px;background:var(--blue);color:#fff;font-weight:1000;cursor:pointer}
+.section-title{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:8px 0 12px}.section-title h2{font-size:22px;margin:0}.section-title p{margin:4px 0 0;color:var(--muted);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(7,minmax(135px,1fr));gap:10px;margin-bottom:18px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px;box-shadow:var(--shadow)}
+.kpi span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.75px;color:var(--muted);font-weight:900}
+.kpi b{display:block;font-size:31px;line-height:1;margin:8px 0 4px}.kpi em{font-style:normal;font-size:12px;color:var(--muted)}
+.kpi.good{background:linear-gradient(180deg,#f6fff9,#fff)}.kpi.bad{background:linear-gradient(180deg,#fff8f7,#fff)}
+.grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin-bottom:18px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:20px;padding:17px;box-shadow:var(--shadow)}
+.panel h3{font-size:17px;margin:0 0 13px}
+.bars{display:grid;gap:12px}.bar-row{display:grid;grid-template-columns:105px 1fr 38px;gap:10px;align-items:center;font-size:13px;font-weight:900}
+.bar-bg{height:12px;background:#edf1f7;border-radius:999px;overflow:hidden}.bar-fill{height:100%;background:linear-gradient(90deg,#3155ff,#57a7ff);border-radius:999px}
+.attention{display:grid;grid-template-columns:1fr 1fr;gap:10px}.attention-card{border-radius:16px;padding:15px;border:1px solid var(--line)}
+.attention-card b{font-size:30px;display:block}.attention-card span{font-size:12px;color:var(--muted);font-weight:800}.attention-card.ok{background:var(--goodbg)}.attention-card.bad{background:var(--badbg)}
+.table-panel{background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow);overflow:hidden}
+.table-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}.table-head h3{margin:0;font-size:18px}.table-head small{color:var(--muted)}
+.table-wrap{overflow:auto;max-height:420px}
+table{border-collapse:collapse;width:100%;min-width:820px}th,td{padding:12px 14px;border-bottom:1px solid #eef0f3;text-align:left;font-size:13px}th{position:sticky;top:0;background:#f9fafb;color:#475467;text-transform:uppercase;font-size:10px;letter-spacing:.6px;z-index:2}td.num{text-align:center;font-weight:900}
+.visit-list{display:grid;gap:9px;margin-top:14px}.visit{display:grid;grid-template-columns:105px minmax(160px,1.3fr) minmax(150px,1fr) 90px 120px;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px 14px;cursor:pointer;box-shadow:0 5px 15px rgba(16,24,40,.03)}
+.visit:hover{border-color:#b9c7ff}.tag{display:inline-flex;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:1000;background:#eef3ff;color:#1e4bd8}.tag.f03{background:#ecfdf3;color:#067647}.tag.f02{background:#eff8ff;color:#175cd3}
+.visit b{font-size:13px}.visit small{display:block;color:var(--muted);margin-top:4px;line-height:1.25}.status{font-size:11px;font-weight:1000;border-radius:999px;padding:6px 9px;text-align:center;background:var(--goodbg);color:var(--good)}.status.open{background:var(--warnbg);color:var(--warn)}
+.more{color:var(--blue);font-weight:1000;text-align:right}
+.empty{text-align:center;padding:35px;color:var(--muted)}
+.modal{position:fixed;inset:0;background:rgba(5,12,25,.62);z-index:100;display:none;align-items:center;justify-content:center;padding:18px}.modal.show{display:flex}
+.modal-card{width:min(1050px,96vw);max-height:92vh;overflow:auto;background:#fff;border-radius:24px;box-shadow:0 35px 100px rgba(0,0,0,.3)}
+.modal-head{position:sticky;top:0;z-index:5;background:linear-gradient(135deg,#102f61,#3155ff);color:#fff;padding:20px 22px;display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.modal-head h2{margin:3px 0 0;font-size:24px}.modal-head small{opacity:.75}.close{border:0;border-radius:12px;background:rgba(255,255,255,.16);color:#fff;width:40px;height:40px;font-size:21px;cursor:pointer}
+.modal-body{padding:18px}.detail-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px}.detail{background:#f8fafc;border:1px solid #e9edf2;border-radius:14px;padding:11px}.detail span{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);letter-spacing:.6px}.detail b{display:block;margin-top:5px;font-size:13px;line-height:1.3}
+.detail-block{border:1px solid var(--line);border-radius:17px;padding:15px;margin-bottom:12px}.detail-block h3{margin:0 0 10px;font-size:15px}.chips{display:flex;flex-wrap:wrap;gap:7px}.chip{background:#f2f4f7;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800}
+.photos{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.photo{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#f7f9fc}.photo img{display:block;width:100%;height:240px;object-fit:cover}.photo span{display:block;padding:9px 10px;font-size:11px;color:var(--muted);font-weight:900}
+.map-actions{display:flex;flex-wrap:wrap;gap:8px}.map-btn{border:0;border-radius:12px;padding:10px 12px;background:#eef3ff;color:#1e4bd8;font-weight:1000;cursor:pointer;text-decoration:none;font-size:12px}
+.notice{background:#fff7df;border:1px solid #f1dda1;color:#614b0a;border-radius:14px;padding:11px 13px;font-size:12px;line-height:1.4}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:120;display:none;place-items:center}.loading-overlay.show{display:grid}.spinner{width:46px;height:46px;border:5px solid #dfe5f3;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:1100px){.kpis{grid-template-columns:repeat(4,1fr)}.grid{grid-template-columns:1fr}.visit{grid-template-columns:95px 1fr 1fr 80px}.visit .more{display:none}}
+@media(max-width:700px){.page{padding:15px 12px 30px}.header{padding:18px 15px}.header-inner{align-items:flex-start}.kpis{grid-template-columns:1fr 1fr}.toolbar{display:grid;grid-template-columns:1fr 1fr}.control{min-width:0}.control input,.control select{width:100%}.refresh{width:100%}.visit{grid-template-columns:75px 1fr}.visit>div:nth-child(3),.visit>div:nth-child(4){display:none}.detail-grid{grid-template-columns:1fr 1fr}.photos{grid-template-columns:1fr}.photo img{height:auto;max-height:520px;object-fit:contain}.attention{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="login" class="login">
+  <div class="login-card">
+    <div class="brand">ALIADO</div>
+    <h2>Tablero Operativo</h2>
+    <div class="field"><label>Correo</label><input id="email" type="email" placeholder="usuario@veralyze.com.mx"></div>
+    <div class="field"><label>Contraseña</label><input id="password" type="password" placeholder="••••••••"></div>
+    <button id="loginBtn" class="login-btn">Entrar al tablero</button>
+    <div id="loginMsg" class="login-msg"></div>
+  </div>
+</div>
+
+<div id="app" class="shell hidden">
+  <header class="header"><div class="header-inner">
+    <div class="logo">ALIADO<small>Centro de Control Operativo</small></div>
+    <div class="userbox"><b id="userName"></b><span id="userRole"></span><br><button id="logoutBtn" class="logout">Salir</button></div>
+  </div></header>
+
+  <main class="page">
+    <div class="section-title"><div><h2>Resumen Ejecutivo</h2><p id="scopeText">Cargando operación…</p></div></div>
+
+    <div class="toolbar">
+      <div class="control"><label>Desde</label><input id="dateFrom" type="date"></div>
+      <div class="control"><label>Hasta</label><input id="dateTo" type="date"></div>
+      <div class="control"><label>Sistema</label><select id="systemFilter"><option value="TODOS">Todos</option></select></div>
+      <div class="control"><label>Supervisor / Senior</label><select id="userFilter"><option value="TODOS">Todos</option></select></div>
+      <button id="refreshBtn" class="refresh">Actualizar</button>
+    </div>
+
+    <section class="kpis">
+      <div class="kpi"><span>Visitas</span><b id="kVisits">—</b><em>en el periodo</em></div>
+      <div class="kpi"><span>Supervisores activos</span><b id="kUsers">—</b><em>con visita registrada</em></div>
+      <div class="kpi"><span>Promotores acompañados</span><b id="kPromoters">—</b><em>F01 / F02</em></div>
+      <div class="kpi"><span>PDV revisados</span><b id="kPdv">—</b><em>F03</em></div>
+      <div class="kpi good"><span>PDV listos</span><b id="kPdvOk">—</b><em>sin atención</em></div>
+      <div class="kpi bad"><span>PDV requieren atención</span><b id="kPdvBad">—</b><em>F03 con hallazgo</em></div>
+      <div class="kpi"><span>Duración promedio</span><b id="kDuration">—</b><em>visitas cerradas</em></div>
+    </section>
+
+    <div class="grid">
+      <section class="panel">
+        <h3>Visitas por formulario</h3>
+        <div id="formBars" class="bars"></div>
+      </section>
+      <section class="panel">
+        <h3>Estado de los PDV revisados</h3>
+        <div class="attention">
+          <div class="attention-card ok"><span>Listos para vender</span><b id="pdvOkBig">0</b></div>
+          <div class="attention-card bad"><span>Requieren atención</span><b id="pdvBadBig">0</b></div>
+        </div>
+        <div id="reqTop" style="margin-top:12px"></div>
+      </section>
+    </div>
+
+    <section class="table-panel">
+      <div class="table-head"><div><h3>Gestión por responsable</h3><small>Quién está gestionando y con qué intensidad</small></div></div>
+      <div class="table-wrap">
+        <table><thead><tr><th>Responsable</th><th>Rol</th><th>Visitas</th><th>F01</th><th>F02</th><th>F03</th><th>Promotores</th><th>PDV</th><th>Última visita</th></tr></thead>
+        <tbody id="userTable"></tbody></table>
+      </div>
+    </section>
+
+    <div class="section-title" style="margin-top:20px"><div><h2>Detalle de visitas</h2><p>Abre cualquier visita para revisar evidencia, resultado y ubicación.</p></div></div>
+    <div id="visitList" class="visit-list"></div>
+  </main>
+</div>
+
+<div id="modal" class="modal"><div class="modal-card">
+  <div class="modal-head"><div><small id="modalTag"></small><h2 id="modalTitle"></h2></div><button class="close" onclick="closeModal()">×</button></div>
+  <div id="modalBody" class="modal-body"></div>
+</div></div>
+
+<div id="loading" class="loading-overlay"><div class="spinner"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL='https://xywqhrcpspfbznwkaklp.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_ZISLQnyu10PMpEnCkgG0dg_PvhPUSQq';
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const EVIDENCE_BASE='https://aliado.veralyze.com.mx/evidencia?path=';
+
+let currentUser=null, rawVisits=[], profiles=[], staff=[], detailCache=new Map();
+
+const $=id=>document.getElementById(id);
+const norm=v=>String(v??'').toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/^CL\s+/,'').replace(/\s+/g,' ').trim();
+const role=u=>norm(u?.perfil);
+const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+const fmtDate=v=>v?new Date(v).toLocaleString('es-MX',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+const fmtDuration=s=>{s=Number(s||0);if(!s)return'—';const m=Math.round(s/60);return m<60?m+' min':Math.floor(m/60)+' h '+(m%60)+' min'};
+const list=v=>Array.isArray(v)?v:(typeof v==='string'?(()=>{try{const x=JSON.parse(v);return Array.isArray(x)?x:[v]}catch{return v?[v]:[]}})():[]);
+const startOfWeek=()=>{const d=new Date(),day=d.getDay()||7;d.setDate(d.getDate()-day+1);return d};
+const ymd=d=>{const x=new Date(d),m=String(x.getMonth()+1).padStart(2,'0'),dd=String(x.getDate()).padStart(2,'0');return `${x.getFullYear()}-${m}-${dd}`};
+const personalById=id=>staff.find(x=>String(x.id_empleado)===String(id));
+const profileByAuth=id=>profiles.find(x=>String(x.auth_user_id)===String(id));
+
+function profileName(id){const p=profileByAuth(id);return p?.nombrePreferido||p?.nombre||'Usuario'}
+function profileRole(id){return profileByAuth(id)?.perfil||'—'}
+function systemOfVisit(v){const p=personalById(v.promotor_id);return p?.sistema||''}
+function pdvOfVisit(v){return v.pdv_nombre||personalById(v.promotor_id)?.pdv||''}
+function promoterName(v){return personalById(v.promotor_id)?.nombre|| (v.promotor_id?'Promotor '+v.promotor_id:'—')}
+
+function allowedVisit(v){
+  const r=role(currentUser);
+  if(r==='REGIONAL') return true;
+  if(r==='GERENTE'){
+    const sys=norm(currentUser?.alcance);
+    return norm(systemOfVisit(v))===sys;
+  }
+  return String(v.usuario_id)===String(currentUser?.auth_user_id);
+}
+
+function currentFiltered(){
+  const sys=$('systemFilter').value, usr=$('userFilter').value;
+  return rawVisits.filter(v=>{
+    if(!allowedVisit(v))return false;
+    if(sys!=='TODOS' && norm(systemOfVisit(v))!==norm(sys))return false;
+    if(usr!=='TODOS' && String(v.usuario_id)!==usr)return false;
+    return true;
+  });
+}
+
+async function login(){
+  const email=$('email').value.trim(),password=$('password').value,msg=$('loginMsg');
+  msg.textContent='Validando…';$('loginBtn').disabled=true;
+  try{
+    const {data,error}=await sb.auth.signInWithPassword({email,password});if(error)throw error;
+    const {data:p,error:pe}=await sb.from('perfiles').select('*').eq('auth_user_id',data.user.id).single();if(pe)throw pe;
+    currentUser=p;
+    $('login').classList.add('hidden');$('app').classList.remove('hidden');
+    $('userName').textContent=p.nombrePreferido||p.nombre||email;$('userRole').textContent=`${p.perfil||''} · ${p.alcance||''}`;
+    initDates();await refreshAll();
+  }catch(e){console.error(e);msg.textContent='No fue posible iniciar sesión. Revisa correo y contraseña.'}
+  finally{$('loginBtn').disabled=false}
+}
+
+function initDates(){
+  $('dateFrom').value=ymd(startOfWeek());$('dateTo').value=ymd(new Date());
+}
+
+async function refreshAll(){
+  $('loading').classList.add('show');
+  try{
+    const from=$('dateFrom').value+'T00:00:00';
+    const toD=new Date($('dateTo').value+'T00:00:00');toD.setDate(toD.getDate()+1);
+    const to=toD.toISOString();
+
+    const [vr,pr,sr]=await Promise.all([
+      sb.from('visitas').select('id,usuario_id,tipo_formulario,origen,motivo,promotor_id,pdv_nombre,estado,inicio_fecha_hora,fin_fecha_hora,duracion_segundos,inicio_latitud,inicio_longitud,inicio_precision_m,fin_latitud,fin_longitud,fin_precision_m').gte('inicio_fecha_hora',new Date(from).toISOString()).lt('inicio_fecha_hora',to).order('inicio_fecha_hora',{ascending:false}),
+      sb.from('perfiles').select('auth_user_id,nombre,nombrePreferido,perfil,alcance'),
+      sb.from('personal_operativo').select('id_empleado,nombre,pdv,sistema,gerente')
+    ]);
+    if(vr.error)throw vr.error;if(pr.error)throw pr.error;if(sr.error)throw sr.error;
+    profiles=pr.data||[];staff=sr.data||[];rawVisits=vr.data||[];
+    buildFilters();render();
+  }catch(e){console.error(e);alert('No fue posible cargar el tablero.\\n\\n'+(e.message||e))}
+  finally{$('loading').classList.remove('show')}
+}
+
+function buildFilters(){
+  const base=rawVisits.filter(allowedVisit);
+  const systems=[...new Set(base.map(systemOfVisit).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es'));
+  const oldSys=$('systemFilter').value;
+  $('systemFilter').innerHTML='<option value="TODOS">Todos</option>'+systems.map(s=>`<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  if([...$('systemFilter').options].some(o=>o.value===oldSys))$('systemFilter').value=oldSys;
+
+  const users=[...new Set(base.map(v=>v.usuario_id).filter(Boolean))].map(id=>({id,name:profileName(id)})).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+  const oldUsr=$('userFilter').value;
+  $('userFilter').innerHTML='<option value="TODOS">Todos</option>'+users.map(u=>`<option value="${esc(u.id)}">${esc(u.name)}</option>`).join('');
+  if([...$('userFilter').options].some(o=>o.value===oldUsr))$('userFilter').value=oldUsr;
+
+  if(role(currentUser)!=='REGIONAL') $('systemFilter').disabled=true;
+}
+
+function render(){
+  const visits=currentFiltered();
+  const done=visits.filter(v=>['COMPLETADA','FINALIZADA'].includes(norm(v.estado)));
+  const users=new Set(visits.map(v=>v.usuario_id).filter(Boolean));
+  const promoters=new Set(visits.filter(v=>['F01','F02'].includes(norm(v.tipo_formulario))).map(v=>v.promotor_id).filter(Boolean));
+  const f03vis=visits.filter(v=>norm(v.tipo_formulario)==='F03');
+
+  $('kVisits').textContent=visits.length;
+  $('kUsers').textContent=users.size;
+  $('kPromoters').textContent=promoters.size;
+  $('kPdv').textContent=new Set(f03vis.map(pdvOfVisit).filter(Boolean)).size;
+  $('kDuration').textContent=done.length?fmtDuration(done.reduce((a,v)=>a+Number(v.duracion_segundos||0),0)/done.length):'—';
+
+  const forms={F01:0,F02:0,F03:0};visits.forEach(v=>{const f=norm(v.tipo_formulario);if(forms[f]!=null)forms[f]++});
+  const mx=Math.max(1,...Object.values(forms));
+  $('formBars').innerHTML=Object.entries(forms).map(([k,n])=>`<div class="bar-row"><span>${k}</span><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(n/mx*100)}%"></div></div><b>${n}</b></div>`).join('');
+
+  $('scopeText').textContent=`${currentUser?.perfil||''} · ${currentUser?.alcance||''} · ${$('dateFrom').value} a ${$('dateTo').value}`;
+
+  renderUserTable(visits);
+  renderVisits(visits);
+  hydrateF03Summary(f03vis);
+}
+
+async function hydrateF03Summary(f03vis){
+  if(!f03vis.length){setPdvStats([],[]);return}
+  const ids=f03vis.map(v=>v.id);
+  const {data,error}=await sb.from('visita_f03').select('visita_id,requiere_atencion,requerimientos').in('visita_id',ids);
+  if(error){console.warn(error);setPdvStats([],[]);return}
+  const rows=data||[],bad=rows.filter(x=>x.requiere_atencion),ok=rows.filter(x=>!x.requiere_atencion);
+  setPdvStats(ok,bad);
+  const counts={};bad.flatMap(x=>list(x.requerimientos)).forEach(x=>counts[x]=(counts[x]||0)+1);
+  const tops=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,4);
+  $('reqTop').innerHTML=tops.length?`<div style="font-size:11px;text-transform:uppercase;color:#667085;font-weight:1000;margin-bottom:7px">Principales requerimientos</div><div class="chips">${tops.map(([x,n])=>`<span class="chip">${esc(x)} · ${n}</span>`).join('')}</div>`:'<div class="notice">Sin requerimientos registrados en el periodo.</div>';
+}
+function setPdvStats(ok,bad){
+  $('kPdvOk').textContent=ok.length;$('kPdvBad').textContent=bad.length;$('pdvOkBig').textContent=ok.length;$('pdvBadBig').textContent=bad.length;
+}
+
+function renderUserTable(visits){
+  const map=new Map();
+  visits.forEach(v=>{
+    const id=String(v.usuario_id||'');if(!id)return;
+    if(!map.has(id))map.set(id,{id,name:profileName(id),role:profileRole(id),visits:0,F01:0,F02:0,F03:0,prom:new Set(),pdv:new Set(),last:null});
+    const x=map.get(id);x.visits++;const f=norm(v.tipo_formulario);if(x[f]!=null)x[f]++;if(v.promotor_id&&['F01','F02'].includes(f))x.prom.add(String(v.promotor_id));if(f==='F03'&&pdvOfVisit(v))x.pdv.add(pdvOfVisit(v));if(!x.last||new Date(v.inicio_fecha_hora)>new Date(x.last))x.last=v.inicio_fecha_hora;
+  });
+  const rows=[...map.values()].sort((a,b)=>b.visits-a.visits);
+  $('userTable').innerHTML=rows.length?rows.map(x=>`<tr><td><b>${esc(x.name)}</b></td><td>${esc(x.role)}</td><td class="num">${x.visits}</td><td class="num">${x.F01}</td><td class="num">${x.F02}</td><td class="num">${x.F03}</td><td class="num">${x.prom.size}</td><td class="num">${x.pdv.size}</td><td>${esc(fmtDate(x.last))}</td></tr>`).join(''):'<tr><td colspan="9" class="empty">Sin visitas en el periodo.</td></tr>';
+}
+
+function renderVisits(visits){
+  $('visitList').innerHTML=visits.length?visits.map(v=>{
+    const f=norm(v.tipo_formulario),who=profileName(v.usuario_id),target=f==='F03'?pdvOfVisit(v):promoterName(v);
+    const closed=['COMPLETADA','FINALIZADA'].includes(norm(v.estado));
+    return `<div class="visit" onclick="openVisit('${v.id}')">
+      <div><span class="tag ${f.toLowerCase()}">${esc(f)}</span><small>${esc(v.origen==='manual'?'Manual':'Motor')}</small></div>
+      <div><b>${esc(target||'Sin destino')}</b><small>${esc(systemOfVisit(v)||pdvOfVisit(v)||'')}</small></div>
+      <div><b>${esc(who)}</b><small>${esc(fmtDate(v.inicio_fecha_hora))}</small></div>
+      <div><span class="status ${closed?'':'open'}">${closed?'Cerrada':'Abierta'}</span></div>
+      <div class="more">Ver expediente →</div>
+    </div>`;
+  }).join(''):'<div class="empty">No hay visitas registradas con estos filtros.</div>';
+}
+
+async function openVisit(id){
+  const v=rawVisits.find(x=>String(x.id)===String(id));if(!v)return;
+  $('modal').classList.add('show');$('modalTag').textContent=`${norm(v.tipo_formulario)} · ${v.origen==='manual'?'Visita manual':'Motor de Prioridades'}`;
+  $('modalTitle').textContent=norm(v.tipo_formulario)==='F03'?pdvOfVisit(v):promoterName(v);
+  $('modalBody').innerHTML='<div class="empty">Cargando expediente…</div>';
+  try{
+    let d=detailCache.get(id);
+    if(!d){d=await loadDetail(v);detailCache.set(id,d)}
+    renderDetail(v,d);
+  }catch(e){console.error(e);$('modalBody').innerHTML=`<div class="notice">No fue posible cargar el expediente: ${esc(e.message||e)}</div>`}
+}
+
+async function loadDetail(v){
+  const f=norm(v.tipo_formulario);let table='',select='';
+  if(f==='F01'){table='visita_f01';select='visita_id,motivo_principal,validaciones,acciones_realizadas,compromiso,foto_path'}
+  if(f==='F02'){table='visita_f02';select='visita_id,acelerador,oferta_movil,oferta_apps,acciones_realizadas,compromiso,foto_path'}
+  if(f==='F03'){table='visita_f03';select='visita_id,herramientas_disponibles,requiere_atencion,requerimientos,foto_frontal_path,foto_trasera_path,foto_publicidad_path,foto_requerimiento_path'}
+  if(!table)return{};
+  const {data,error}=await sb.from(table).select(select).eq('visita_id',v.id).maybeSingle();if(error)throw error;return data||{};
+}
+
+function imgUrl(path){return path?EVIDENCE_BASE+encodeURIComponent(path):''}
+function mapUrl(lat,lng){return (lat!=null&&lng!=null)?`https://www.google.com/maps?q=${encodeURIComponent(lat+','+lng)}`:''}
+
+function renderDetail(v,d){
+  const f=norm(v.tipo_formulario),who=profileName(v.usuario_id),closed=['COMPLETADA','FINALIZADA'].includes(norm(v.estado));
+  const gpsStart=v.inicio_latitud!=null?`${Number(v.inicio_latitud).toFixed(6)}, ${Number(v.inicio_longitud).toFixed(6)}`:'—';
+  const gpsEnd=v.fin_latitud!=null?`${Number(v.fin_latitud).toFixed(6)}, ${Number(v.fin_longitud).toFixed(6)}`:'—';
+  let result='',photos=[];
+
+  if(f==='F01'){
+    result=`<div class="detail-block"><h3>Resultado F01</h3><div class="detail-grid">
+      <div class="detail"><span>Motivo principal</span><b>${esc(d.motivo_principal||'—')}</b></div>
+      <div class="detail"><span>Compromiso</span><b>${esc(d.compromiso||'—')}</b></div>
+    </div><div class="chips">${list(d.validaciones).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>`;
+    if(d.foto_path)photos.push(['Evidencia',imgUrl(d.foto_path)]);
+  }
+  if(f==='F02'){
+    result=`<div class="detail-block"><h3>Resultado F02</h3><div class="detail-grid">
+      <div class="detail"><span>Acelerador</span><b>${esc(d.acelerador||'—')}</b></div>
+      <div class="detail"><span>Mega Móvil</span><b>${esc(d.oferta_movil||'—')}</b></div>
+      <div class="detail"><span>Apps</span><b>${esc(d.oferta_apps||'—')}</b></div>
+      <div class="detail"><span>Compromiso</span><b>${esc(d.compromiso||'—')}</b></div>
+    </div><div class="chips">${list(d.acciones_realizadas).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>`;
+    if(d.foto_path)photos.push(['Evidencia',imgUrl(d.foto_path)]);
+  }
+  if(f==='F03'){
+    result=`<div class="detail-block"><h3>Resultado F03</h3>
+      <div class="${d.requiere_atencion?'notice':'detail'}"><b>${d.requiere_atencion?'REQUIERE ATENCIÓN':'PDV LISTO PARA VENDER'}</b></div>
+      <div style="margin-top:10px"><b style="font-size:12px">Herramientas disponibles</b><div class="chips" style="margin-top:7px">${list(d.herramientas_disponibles).map(x=>`<span class="chip">${esc(x)}</span>`).join('')||'<span class="chip">Ninguna marcada</span>'}</div></div>
+      ${d.requiere_atencion?`<div style="margin-top:12px"><b style="font-size:12px">Requerimientos</b><div class="chips" style="margin-top:7px">${list(d.requerimientos).map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></div>`:''}
+    </div>`;
+    [['Frontal',d.foto_frontal_path],['Trasera / lateral',d.foto_trasera_path],['Publicidad / folletería',d.foto_publicidad_path],['Requerimiento',d.foto_requerimiento_path]].forEach(([n,p])=>{if(p)photos.push([n,imgUrl(p)])});
+  }
+
+  $('modalBody').innerHTML=`
+    <div class="detail-grid">
+      <div class="detail"><span>Responsable</span><b>${esc(who)}</b></div>
+      <div class="detail"><span>Rol</span><b>${esc(profileRole(v.usuario_id))}</b></div>
+      <div class="detail"><span>Inicio</span><b>${esc(fmtDate(v.inicio_fecha_hora))}</b></div>
+      <div class="detail"><span>Fin</span><b>${esc(fmtDate(v.fin_fecha_hora))}</b></div>
+      <div class="detail"><span>Duración</span><b>${esc(fmtDuration(v.duracion_segundos))}</b></div>
+      <div class="detail"><span>Estado</span><b>${esc(v.estado||'—')}</b></div>
+      <div class="detail"><span>PDV</span><b>${esc(pdvOfVisit(v)||'—')}</b></div>
+      <div class="detail"><span>Origen</span><b>${esc(v.origen==='manual'?'Caja de Herramientas':'Motor de Prioridades')}</b></div>
+    </div>
+    ${result}
+    <div class="detail-block"><h3>Ubicación de la visita</h3>
+      <div class="detail-grid">
+        <div class="detail"><span>GPS inicio</span><b>${esc(gpsStart)}</b><small>Precisión: ${v.inicio_precision_m!=null?Math.round(v.inicio_precision_m)+' m':'—'}</small></div>
+        <div class="detail"><span>GPS fin</span><b>${esc(gpsEnd)}</b><small>Precisión: ${v.fin_precision_m!=null?Math.round(v.fin_precision_m)+' m':'—'}</small></div>
+      </div>
+      <div class="map-actions">
+        ${mapUrl(v.inicio_latitud,v.inicio_longitud)?`<a class="map-btn" target="_blank" rel="noopener" href="${mapUrl(v.inicio_latitud,v.inicio_longitud)}">Ver inicio en mapa</a>`:''}
+        ${mapUrl(v.fin_latitud,v.fin_longitud)?`<a class="map-btn" target="_blank" rel="noopener" href="${mapUrl(v.fin_latitud,v.fin_longitud)}">Ver fin en mapa</a>`:''}
+      </div>
+    </div>
+    <div class="detail-block"><h3>Evidencia fotográfica</h3>
+      ${photos.length?`<div class="photos">${photos.map(([n,u])=>`<a class="photo" href="${u}" target="_blank" rel="noopener"><img src="${u}" alt="${esc(n)}"><span>${esc(n)} · abrir original</span></a>`).join('')}</div>`:'<div class="notice">Esta visita no tiene fotografía disponible en su expediente.</div>'}
+    </div>
+  `;
+}
+
+function closeModal(){$('modal').classList.remove('show')}
+$('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});
+$('loginBtn').onclick=login;$('password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
+$('logoutBtn').onclick=async()=>{await sb.auth.signOut();location.reload()};
+$('refreshBtn').onclick=refreshAll;
+$('systemFilter').onchange=()=>{buildFilters();render()};
+$('userFilter').onchange=render;
+$('dateFrom').onchange=refreshAll;$('dateTo').onchange=refreshAll;
+
+(async()=>{
+  const {data}=await sb.auth.getSession();
+  if(data?.session){
+    const {data:p}=await sb.from('perfiles').select('*').eq('auth_user_id',data.session.user.id).maybeSingle();
+    if(p){currentUser=p;$('login').classList.add('hidden');$('app').classList.remove('hidden');$('userName').textContent=p.nombrePreferido||p.nombre||'';$('userRole').textContent=`${p.perfil||''} · ${p.alcance||''}`;initDates();await refreshAll()}
+  }
+})();
+</script>
+</body>
+</html>
