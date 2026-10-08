@@ -85,6 +85,9 @@ tr.group td{background:#f2f5fb;font-weight:1000;font-size:12px;color:#344054;tex
 .map-actions{display:flex;flex-wrap:wrap;gap:8px}.map-btn{border:0;border-radius:12px;padding:10px 12px;background:#eef3ff;color:#1e4bd8;font-weight:1000;cursor:pointer;text-decoration:none;font-size:12px}
 .pdf-btn{border:0;border-radius:12px;padding:11px 14px;background:var(--blue);color:#fff;font-weight:1000;cursor:pointer;margin-right:8px}
 .pdf-btn.sec{background:#eef3ff;color:#1e4bd8}
+.min-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-bottom:12px}.min-tools .count{font-size:12px;color:var(--muted);font-weight:800;margin-left:auto;align-self:center}
+.min-table{min-width:880px}.min-table td{vertical-align:middle}.min-table small{display:block;color:var(--muted);margin-top:3px}.min-act{white-space:nowrap}.min-act .pdf-btn{padding:8px 11px;font-size:12px;margin-right:6px}
+.pdf-btn:disabled{opacity:.45;cursor:not-allowed}
 .loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:120;display:none;place-items:center}.loading-overlay.show{display:grid}.spinner{width:46px;height:46px;border:5px solid #dfe5f3;border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
 @media(max-width:1100px){.kpis{grid-template-columns:repeat(3,1fr)}.kpi.main{grid-column:1/-1}.grid,.plan{grid-template-columns:1fr}.visit{grid-template-columns:95px 1fr 1fr}.visit>div:nth-child(4),.visit .more{display:none}}
 @media(max-width:700px){.page{padding:15px 12px 30px}.header{padding:18px 15px}.kpis{grid-template-columns:1fr 1fr}.toolbar{display:grid;grid-template-columns:1fr 1fr}.control{min-width:0}.control input,.control select{width:100%}.refresh,.quick{width:100%}.updated{grid-column:1/-1}.visit{grid-template-columns:75px 1fr}.visit>div:nth-child(3){display:none}.detail-grid{grid-template-columns:1fr 1fr}.photos{grid-template-columns:1fr}.signals{grid-template-columns:1fr}.bar-row{grid-template-columns:120px 1fr 30px}}
@@ -110,7 +113,7 @@ tr.group td{background:#f2f5fb;font-weight:1000;font-size:12px;color:#344054;tex
   </div></header>
 
   <main class="page">
-    <div class="section-title"><div><h2>¿Qué hizo hoy mi equipo?</h2><p id="scopeText">Cargando operación…</p></div></div>
+    <div class="section-title"><div><h2>¿Qué hizo hoy mi equipo?</h2><p id="scopeText">Cargando operación…</p></div><button id="btnMinutas" class="quick" type="button">Minutas del día</button></div>
 
     <div class="toolbar">
       <button id="btnHoy" class="quick" type="button">Hoy</button>
@@ -522,9 +525,294 @@ function renderActa(a,x){
     ['Responsable',t(c.responsable_nombre)],['Región / Sistema',t([v.region,v.sistema].filter(Boolean).join(' · '))]]);
   $('actaBlock').innerHTML='<h3>Acta V3</h3>'+h;
 }
-function closeModal(){$('modal').classList.remove('show');visitaAbierta=null}
+function closeModal(){$('modal').classList.remove('show');visitaAbierta=null;min.abierto=false;min.token++}
+
+// ---------------- Escritor PDF minimo (mismo de Aliado V3: A4, Helvetica / Helvetica-Bold WinAnsi, texto real, sin librerias)
+const ANCHOS={
+  F1:[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,
+      1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,
+      333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584],
+  F2:[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,
+      975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,
+      333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584]
+};
+const WIN={0x2013:0x96,0x2014:0x97,0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2026:0x85,0x20AC:0x80};
+const limpiaTxt=s=>String(s==null?'':s).replace(/[   \t\r]/g,' ').replace(/\n+/g,' ');
+function codigoWin(ch){
+  const c=ch.charCodeAt(0);
+  if(c>=32&&c<=126)return c;
+  if(c>=0xA0&&c<=0xFF)return c;
+  if(WIN[c])return WIN[c];
+  const base=ch.normalize?ch.normalize('NFD').charAt(0):'?';
+  return base.charCodeAt(0)>=32&&base.charCodeAt(0)<=126?base.charCodeAt(0):63;
+}
+function anchoCar(ch,f){
+  const c=codigoWin(ch);
+  if(c>=32&&c<=126)return ANCHOS[f][c-32];
+  const base=String.fromCharCode(c).normalize('NFD').charAt(0).charCodeAt(0);
+  if(base>=65&&base<=122)return ANCHOS[f][base-32];
+  return {0xBF:611,0xA1:333,0xB7:278,0x96:556,0x97:1000,0x85:1000,0xB0:400,0xB1:584}[c]||556;
+}
+const hexWin=s=>{let o='';for(let i=0;i<s.length;i++)o+=('0'+codigoWin(s.charAt(i)).toString(16)).slice(-2);return o.toUpperCase()};
+function crearPdf(info){
+  const W=595.28,H=841.89,M=40,CW=W-2*M,PIE=34;
+  const paginas=[];let pag=null,y=0;
+  const AZUL='0.07 0.235 0.47',TINTA='0.09 0.15 0.23',GRIS='0.44 0.5 0.59',LINEA='0.9 0.92 0.95';
+  const nuevaPagina=()=>{pag={ops:[]};paginas.push(pag);y=H-M};
+  const op=s=>pag.ops.push(s);
+  const ancho=(s,tam,f)=>{let w=0;s=limpiaTxt(s);for(let i=0;i<s.length;i++)w+=anchoCar(s.charAt(i),f);return w*tam/1000};
+  const texto=(x,yy,s,tam,f,color)=>op('BT /'+f+' '+tam+' Tf '+(color||TINTA)+' rg '+x.toFixed(2)+' '+yy.toFixed(2)+' Td <'+hexWin(limpiaTxt(s))+'> Tj ET');
+  function partir(s,tam,f,max){
+    const palabras=limpiaTxt(s).split(' '),lineas=[];let l='';
+    palabras.forEach(p=>{
+      while(ancho(p,tam,f)>max){let k=p.length;while(k>1&&ancho(p.slice(0,k),tam,f)>max)k--;if(l){lineas.push(l);l=''}lineas.push(p.slice(0,k));p=p.slice(k)}
+      const t=l?l+' '+p:p;
+      if(ancho(t,tam,f)>max&&l){lineas.push(l);l=p}else l=t;
+    });
+    if(l||!lineas.length)lineas.push(l);
+    return lineas;
+  }
+  const rect=(x,yy,w,h,color)=>op('q '+color+' rg '+[x,yy,w,h].map(n=>n.toFixed(2)).join(' ')+' re f Q');
+  const raya=yy=>op('q '+LINEA+' RG 0.6 w '+M.toFixed(2)+' '+yy.toFixed(2)+' m '+(M+CW).toFixed(2)+' '+yy.toFixed(2)+' l S Q');
+  const espacio=h=>{if(y-h<M+PIE)nuevaPagina()};
+  const api={
+    VERDE:'0.08 0.5 0.24',ROJO:'0.6 0.18 0.18',AMBAR:'0.6 0.36 0.05',GRIS,
+    encabezado(kicker,titulo,sub){
+      nuevaPagina();rect(0,H-118,W,118,AZUL);
+      texto(M,H-42,kicker,9,'F2','0.81 0.88 1');texto(M,H-74,titulo,24,'F2','1 1 1');texto(M,H-98,sub,11,'F1','0.86 0.91 1');
+      y=H-140;
+    },
+    seccion(titulo,siguiente){espacio(46+(siguiente||0));texto(M,y-12,String(titulo).toUpperCase(),9.5,'F2',AZUL);y-=18;raya(y);y-=4},
+    fila(k,v,color){
+      const lk=partir(k,9,'F1',170),lv=partir(v==null||v===''?'—':String(v),10,'F2',CW-185);
+      const h=Math.max(lk.length*11,lv.length*12.5)+8;
+      espacio(h);
+      lk.forEach((t,i)=>texto(M,y-12-i*11,t,9,'F1',GRIS));
+      lv.forEach((t,i)=>texto(M+185,y-12-i*12.5,t,10,'F2',color||TINTA));
+      y-=h;raya(y+2);
+    },
+    parrafo(k,v){                                                         // respeta los saltos de linea capturados
+      const lineas=[];String(v==null||v===''?'—':v).split(/\r?\n/).forEach(t=>{if(t.trim()==='')lineas.push('');else partir(t,10,'F1',CW).forEach(x=>lineas.push(x))});
+      espacio(16+Math.min(lineas.length,4)*13);
+      texto(M,y-12,k,9,'F1',GRIS);y-=16;
+      lineas.forEach(t=>{if(t===''){y-=6;return}espacio(13);texto(M,y-10,t,10,'F1',TINTA);y-=13});
+      y-=6;raya(y+2);
+    },
+    nota(t,color){partir(t,9,'F1',CW).forEach(l=>{espacio(13);texto(M,y-11,l,9,'F1',color||GRIS);y-=12.5});y-=4},
+    espacio(h){y-=h},
+    construir(){
+      const enc=new TextEncoder(),partes=[],ofs=[];let largo=0;
+      const add=v=>{const u=typeof v==='string'?enc.encode(v):v;partes.push(u);largo+=u.length};
+      const obj=(n,cuerpo)=>{ofs[n]=largo;add(n+' 0 obj\n'+cuerpo+'\nendobj\n')};
+      const base=6,total=paginas.length;
+      paginas.forEach((p,i)=>{pag=p;texto(M,22,info.pie,8,'F1',GRIS);const pp='Página '+(i+1)+' de '+total;texto(W-M-ancho(pp,8,'F1'),22,pp,8,'F1',GRIS)});
+      add('%PDF-1.4\n%âãÏÓ\n');
+      obj(1,'<< /Type /Catalog /Pages 2 0 R >>');
+      obj(2,'<< /Type /Pages /Kids ['+paginas.map((p,i)=>(base+i*2)+' 0 R').join(' ')+'] /Count '+total+' >>');
+      obj(3,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+      obj(4,'<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+      obj(5,'<< /Title <FEFF'+info.titulo.split('').map(c=>('000'+c.charCodeAt(0).toString(16)).slice(-4)).join('').toUpperCase()+
+        '> /Producer (Aliado V3 Tablero) /CreationDate (D:'+new Date().toISOString().replace(/[-:T]/g,'').slice(0,14)+'Z) >>');
+      paginas.forEach((p,i)=>{
+        const contenido=p.ops.join('\n')+'\n';
+        obj(base+i*2,'<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '+W+' '+H+'] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents '+(base+i*2+1)+' 0 R >>');
+        obj(base+i*2+1,'<< /Length '+enc.encode(contenido).length+' >>\nstream\n'+contenido+'endstream');
+      });
+      const n=base+total*2,xref=largo;
+      add('xref\n0 '+n+'\n0000000000 65535 f \n');
+      for(let k=1;k<n;k++)add(String(ofs[k]).padStart(10,'0')+' 00000 n \n');
+      add('trailer\n<< /Size '+n+' /Root 1 0 R /Info 5 0 R >>\nstartxref\n'+xref+'\n%%EOF\n');
+      return new Blob(partes,{type:'application/pdf'});
+    }
+  };
+  return api;
+}
+
+// ---------------- Minutas del dia: archivo documental de SOLO LECTURA.
+// Indice = minutas[] de aliado_v3_tablero_actividad(fecha, fecha) (mismo alcance del Tablero, sin tocar el rango principal);
+// documento = aliado_v3_minuta_documento(id): ultima version persistida, nombres y alcance resueltos en la base.
+// El PDF se genera en el navegador bajo demanda: no se guarda en R2, no crea expediente y no escribe en Supabase.
+const TIPO_MINUTA={PDV:'Minuta puntos de venta',CANALES_ALTERNOS:'Minuta Canales Alternos'};
+const TIPO_CORTO={PDV:'PDV',CANALES_ALTERNOS:'Canales Alternos'};
+const CHECK_MINUTA={PDV:[['folios','Folios físicos'],['sims','SIMS Megamóvil'],['pros','Lista de PROs'],['publicidad','Publicidad']],
+  CANALES_ALTERNOS:[['folios','Folios físicos'],['pros','Lista de PROs'],['publicidad','Publicidad']]};
+const ROL_TXT={SUPERVISOR:'Supervisor',SENIOR:'Senior',GERENTE:'Gerente',REGIONAL:'Regional'};
+const MOTIVOS_DOC={RESPONSABLE_NO_PERMITIDO:'La minuta está fuera de tu alcance.',NO_ENCONTRADA:'La minuta no existe.',SIN_SESION:'No hay una sesión activa.'};
+const min={abierto:false,fecha:null,datos:null,docs:{},errores:{},sistema:'TODOS',token:0,cargando:false};
+const pad6=n=>String(n).padStart(6,'0');
+const slug=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'_').replace(/^_+|_+$/g,'')||'alcance';
+const regionTxt=r=>norm(r)==='BAJIO'?'Bajío':(r||'');
+const fechaLarga=ymd=>{try{const d=new Date(ymd+'T12:00:00Z').toLocaleDateString('es-MX',{weekday:'long',timeZone:'UTC'});return d.charAt(0).toUpperCase()+d.slice(1)+' '+fechaTxt(ymd)}catch(_){return fechaTxt(ymd)}};
+const fechaMinutasInicial=()=>{const d=$('dateFrom').value,h=$('dateTo').value;return h||d||hoyMx()};   // un dia: ese dia · rango: "hasta"
+
+function abrirMinutas(){
+  visitaAbierta=null;min.abierto=true;min.fecha=fechaMinutasInicial();min.sistema='TODOS';
+  $('modalTag').textContent='Archivo documental · solo lectura';$('modalTitle').textContent='Minutas del día';
+  $('modal').classList.add('show');
+  cargarMinutas();
+}
+async function cargarMinutas(){
+  const tk=++min.token;min.datos=null;min.docs={};min.errores={};min.cargando=true;renderMinutas();
+  try{
+    const r=await sb.rpc('aliado_v3_tablero_actividad',{p_desde:min.fecha,p_hasta:min.fecha});
+    if(tk!==min.token)return;
+    if(r.error)throw r.error;
+    if(!r.data||!r.data.autorizado)throw new Error(r.data?(MOTIVOS_ACCESO[r.data.motivo]||r.data.motivo):'sin respuesta');
+    min.datos=r.data;
+  }catch(e){if(tk!==min.token)return;min.datos={error:String(e.message||e).replace(/^TABLERO:\s*/,'')}}
+  min.cargando=false;renderMinutas();
+  // Detalle de cada minuta (hora de captura / quien capturo) en paralelo acotado; queda en cache para los PDF
+  const ids=listaMinutas().map(x=>x.m.minuta_id);let i=0;
+  const trabajador=async()=>{while(i<ids.length&&tk===min.token){const id=ids[i++];try{await docDe(id)}catch(_){}if(tk===min.token)pintarFilaMinuta(id)}};
+  await Promise.all([1,2,3,4].map(trabajador));
+}
+async function docDe(id){
+  if(min.docs[id])return min.docs[id];
+  const r=await sb.rpc('aliado_v3_minuta_documento',{p_minuta_id:id});
+  if(r.error){min.errores[id]=String(r.error.message||r.error.code||r.error);throw new Error(min.errores[id])}
+  if(!r.data||!r.data.permitido){min.errores[id]=MOTIVOS_DOC[r.data?.motivo]||MOTIVOS_ACCESO[r.data?.motivo]||('Sin acceso ('+(r.data?.motivo||'?')+')');throw new Error(min.errores[id])}
+  return (min.docs[id]=r.data);
+}
+function listaMinutas(){
+  const d=min.datos;if(!d||d.error)return [];
+  const rs=new Map((d.responsables||[]).map(r=>[String(r.id_empleado),r]));
+  return (d.minutas||[]).map(m=>({m,r:rs.get(String(m.responsable_id))||{}}))
+    .filter(x=>min.sistema==='TODOS'||x.r.sistema===min.sistema)
+    .sort((a,b)=>String(a.r.sistema||'').localeCompare(String(b.r.sistema||''),'es')||String(a.m.tipo).localeCompare(String(b.m.tipo))||String(a.r.nombre||'').localeCompare(String(b.r.nombre||''),'es'));
+}
+function celdasCaptura(id){
+  const d=min.docs[id];
+  if(!d)return min.errores[id]?[`<span style="color:#b42318">${esc(min.errores[id])}</span>`,'—']:['<small>Consultando…</small>','<small>Consultando…</small>'];
+  const m=d.minuta,act=m.actualizado_en&&m.creado_en&&new Date(m.actualizado_en)-new Date(m.creado_en)>1000;
+  return [`<b>${esc(hora(act?m.actualizado_en:m.creado_en))}</b><small>${act?'actualizada · creada '+esc(hora(m.creado_en)):'capturada'}</small>`,
+          `${esc(d.nombres?.capturo||'ID '+m.capturado_por_id)}<small>${esc(ROL_TXT[m.capturado_por_rol]||m.capturado_por_rol||'')}${String(m.capturado_por_id)!==String(m.responsable_id)?' · en espejo':''}</small>`];
+}
+function pintarFilaMinuta(id){
+  const tr=document.querySelector(`#minTabla tr[data-minuta="${id}"]`);if(!tr)return;
+  const [c1,c2]=celdasCaptura(id);tr.cells[4].innerHTML=c1;tr.cells[5].innerHTML=c2;
+  const ok=!!min.docs[id];tr.querySelectorAll('button').forEach(b=>b.disabled=!ok);
+  const todas=$('minTodas');if(todas)todas.disabled=!listaMinutas().length||listaMinutas().some(x=>min.errores[x.m.minuta_id]);
+}
+function renderMinutas(){
+  if(!min.abierto)return;
+  const d=min.datos,lista=listaMinutas();
+  const sistemas=d&&!d.error?[...new Set((d.responsables||[]).map(r=>r.sistema).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'es')):[];
+  const herramientas=`<div class="min-tools">
+      <div class="control"><label>Fecha de las minutas</label><input id="minFecha" type="date" min="${CORTE_V3}" max="${hoyMx()}" value="${esc(min.fecha)}"></div>
+      ${sistemas.length>1?`<div class="control"><label>Sistema</label><select id="minSistema"><option value="TODOS">Todos</option>${sistemas.map(s=>`<option value="${esc(s)}"${min.sistema===s?' selected':''}>${esc(s)}</option>`).join('')}</select></div>`:''}
+      <button id="minTodas" class="pdf-btn" type="button" ${lista.length?'':'disabled'}>Descargar todas</button>
+      <span class="count">${min.cargando?'Consultando…':(d&&!d.error?`${lista.length} ${lista.length===1?'minuta':'minutas'} · ${esc(fechaTxt(min.fecha))}`:'')}</span></div>
+    <div id="minMsg" style="font-size:12px;margin:-4px 0 10px"></div>`;
+  let cuerpo;
+  if(min.cargando)cuerpo='<div class="empty">Consultando minutas…</div>';
+  else if(d?.error)cuerpo=`<div class="notice error">No fue posible consultar las minutas: ${esc(d.error)}</div>`;
+  else if(d?.rango?.antes_del_corte)cuerpo=`<div class="notice">Las minutas V3 inician el ${fechaTxt(CORTE_V3)}.</div>`;
+  else if(!lista.length)cuerpo=`<div class="empty">No hay minutas registradas el ${esc(fechaTxt(min.fecha))} en tu alcance${min.sistema!=='TODOS'?' para '+esc(min.sistema):''}.</div>`;
+  else cuerpo=`<div class="table-wrap" style="max-height:none;border:1px solid var(--line);border-radius:16px"><table class="min-table"><thead><tr><th>Responsable</th><th>Rol</th><th>Sistema</th><th>Tipo</th><th>Captura</th><th>Capturada por</th><th></th></tr></thead><tbody id="minTabla">${
+      lista.map(({m,r})=>{const [c1,c2]=celdasCaptura(m.minuta_id);return `<tr data-minuta="${m.minuta_id}"><td><b>${esc(r.nombre||'ID '+m.responsable_id)}</b><small>Folio M-${pad6(m.minuta_id)}</small></td>
+        <td>${esc(ROL_TXT[r.rol]||r.rol||'')}</td><td>${esc(r.sistema||'')}</td><td>${chip(TIPO_CORTO[m.tipo]||m.tipo,m.tipo==='PDV'?'info':'')}</td><td>${c1}</td><td>${c2}</td>
+        <td class="min-act"><button class="pdf-btn" type="button" data-ver="${m.minuta_id}" ${min.docs[m.minuta_id]?'':'disabled'}>Ver PDF</button><button class="pdf-btn sec" type="button" data-bajar="${m.minuta_id}" ${min.docs[m.minuta_id]?'':'disabled'}>Descargar PDF</button></td></tr>`}).join('')
+    }</tbody></table></div>
+    <p style="font-size:12px;color:#667085;margin:10px 2px 0">Cada PDF reconstruye la versión persistida más reciente de la minuta. Planeado vs ejecutado se calcula al generar, con las actividades cerradas.</p>`;
+  $('modalBody').innerHTML=herramientas+cuerpo;
+  $('minFecha').onchange=e=>{const f=e.target.value;if(!f)return;min.fecha=f<CORTE_V3?CORTE_V3:f;min.sistema='TODOS';cargarMinutas()};
+  if($('minSistema'))$('minSistema').onchange=e=>{min.sistema=e.target.value;renderMinutas()};
+  $('minTodas').onclick=descargarTodas;
+  if(!lista.length||lista.some(x=>min.errores[x.m.minuta_id]))$('minTodas').disabled=true;
+  document.querySelectorAll('[data-ver]').forEach(b=>b.onclick=()=>pdfMinuta(Number(b.dataset.ver),true));
+  document.querySelectorAll('[data-bajar]').forEach(b=>b.onclick=()=>pdfMinuta(Number(b.dataset.bajar),false));
+}
+function alcanceMinutas(){
+  if(min.sistema!=='TODOS')return min.sistema;
+  if(ctx?.rol_funcional==='REGIONAL')return 'Region_'+(ctx.region||'');
+  if(ctx?.rol_funcional==='GERENTE')return ctx.sistema||'';
+  return (ctx?.sistema||'')+'_'+(ctx?.id_empleado||'');
+}
+function alcanceVisible(){
+  if(min.sistema!=='TODOS')return 'Sistema '+min.sistema;
+  if(ctx?.rol_funcional==='REGIONAL')return 'Región '+regionTxt(ctx.region);
+  if(ctx?.rol_funcional==='GERENTE')return 'Sistema '+(ctx.sistema||'');
+  return (ROL_TXT[ctx?.rol_funcional]||'')+' '+(ctx?.id_empleado||'')+' · '+(ctx?.sistema||'');
+}
+function entregarPdf(blob,nombre,ventana){
+  const url=URL.createObjectURL(blob);
+  if(ventana){ventana.location.href=url}else{const a=document.createElement('a');a.href=url;a.download=nombre;document.body.appendChild(a);a.click();a.remove()}
+  setTimeout(()=>URL.revokeObjectURL(url),60000);
+}
+async function pdfMinuta(id,abrir){
+  const msg=$('minMsg'),ventana=abrir?window.open('','_blank'):null;
+  try{
+    const d=await docDe(id),m=d.minuta;
+    const pdf=crearPdf({titulo:`${TIPO_MINUTA[m.tipo]||'Minuta'} ${fechaTxt(m.fecha)} · ${d.nombres?.responsable||m.responsable_id}`,pie:`Aliado V3 · Minuta M-${pad6(m.id)} · Versión persistida más reciente`});
+    escribirMinuta(pdf,d);
+    entregarPdf(pdf.construir(),`Minuta_${slug(TIPO_CORTO[m.tipo])}_${slug(d.nombres?.responsable||m.responsable_id)}_${m.fecha}.pdf`,ventana);
+    if(msg)msg.textContent='';
+  }catch(e){if(ventana)ventana.close();if(msg)msg.innerHTML=`<span style="color:#b42318">No fue posible generar el PDF: ${esc(e.message||e)}</span>`}
+}
+async function descargarTodas(){
+  const msg=$('minMsg'),lista=listaMinutas(),btn=$('minTodas');if(!lista.length)return;
+  btn.disabled=true;msg.textContent='Preparando PDF consolidado…';
+  try{
+    const docs=[];for(const x of lista)docs.push(await docDe(x.m.minuta_id));
+    const alcance=alcanceMinutas(),visible=alcanceVisible();
+    const pdf=crearPdf({titulo:`Minutas del día ${fechaTxt(min.fecha)} · ${visible}`,pie:`Aliado V3 · Minutas del día ${fechaTxt(min.fecha)} · ${visible}`});
+    pdf.encabezado('ALIADO · ARCHIVO DE MINUTAS','Minutas del día',`${fechaLarga(min.fecha)} · ${visible} · ${docs.length} ${docs.length===1?'minuta':'minutas'}`);
+    pdf.seccion('Contenido');
+    docs.forEach((d,i)=>{const m=d.minuta;pdf.fila(`${i+1}. ${TIPO_CORTO[m.tipo]||m.tipo} · ${m.sistema||''}`,`${d.nombres?.responsable||'ID '+m.responsable_id} · ${ROL_TXT[m.responsable_rol]||m.responsable_rol} · Folio M-${pad6(m.id)}`)});
+    pdf.espacio(8);pdf.nota('Cada minuta inicia en página nueva y corresponde a su versión persistida más reciente. Generado desde Tablero V3 el '+fechaHora(new Date().toISOString())+'.');
+    docs.forEach(d=>escribirMinuta(pdf,d));
+    entregarPdf(pdf.construir(),`Minutas_${slug(alcance)}_${min.fecha}.pdf`,null);
+    msg.textContent='';
+  }catch(e){msg.innerHTML=`<span style="color:#b42318">No fue posible generar el PDF consolidado: ${esc(e.message||e)}</span>`}
+  finally{btn.disabled=false}
+}
+// Contenido de UNA minuta: solo lo persistido (no hay firma, ubicacion ni fotos en la minuta). Cada minuta inicia pagina.
+function escribirMinuta(pdf,d){
+  const m=d.minuta,c=m.contexto||{},n=d.nombres||{},a=d.alertas||{},e=d.ejecucion||{},chk=m.checklist||{},esPdv=m.tipo==='PDV';
+  const act=m.actualizado_en&&m.creado_en&&new Date(m.actualizado_en)-new Date(m.creado_en)>1000;
+  const siNo=v=>v===true?['Sí',pdf.VERDE]:(v===false?['No',pdf.ROJO]:['No registrado',pdf.GRIS]);
+  const personas=l=>(l||[]).length?(l||[]).map(p=>p.nombre||('ID '+p.id_empleado+' (sin nombre vigente)')).join(', '):'Nadie';
+  pdf.encabezado('ALIADO · MINUTA DEL DÍA',TIPO_MINUTA[m.tipo]||m.tipo,`${fechaLarga(m.fecha)} · Folio M-${pad6(m.id)}`);
+  pdf.nota('Versión persistida más reciente · '+(act?'actualizada el '+fechaHora(m.actualizado_en)+' (creada el '+fechaHora(m.creado_en)+')':'capturada el '+fechaHora(m.creado_en))+
+    ' · Generado desde Tablero V3 el '+fechaHora(d.generado_en||new Date().toISOString())+'. Aliado conserva una sola versión por día; planeado vs ejecutado se calcula con las actividades cerradas al generar. La minuta no captura firma, ubicación ni fotografías.');
+  pdf.seccion('Responsable');
+  pdf.fila(ROL_TXT[m.responsable_rol]||'Responsable',n.responsable||('ID '+m.responsable_id));
+  pdf.fila('Rol',ROL_TXT[m.responsable_rol]||m.responsable_rol);
+  pdf.fila(c.responsable_numero?'No. de empleado':'ID de empleado',c.responsable_numero||m.responsable_id);
+  pdf.fila('Región',regionTxt(m.region||c.region));
+  pdf.fila('Sistema',m.sistema||c.sistema);
+  pdf.seccion('Contexto al capturar');
+  pdf.fila('Corte de datos',c.corte?fechaTxt(c.corte):'No registrado');
+  pdf.fila('Equipo',c.equipo!=null?c.equipo+' personas':'No registrado');
+  if(a.registradas){
+    pdf.fila('Cerraron ayer en 0 · '+(a.sin_venta_ayer||[]).length,personas(a.sin_venta_ayer),(a.sin_venta_ayer||[]).length?pdf.AMBAR:null);
+    pdf.fila('2 o más días en 0 · '+(a.sin_venta_2_mas||[]).length,personas(a.sin_venta_2_mas),(a.sin_venta_2_mas||[]).length?pdf.ROJO:null);
+  }else pdf.fila('Alertas de venta','No registradas en esta minuta');
+  pdf.seccion('Plan del día');
+  if(esPdv){
+    const vis=new Set((e.pdv_visitados||[]).map(norm)),pl=m.pdv||[];
+    pdf.fila('PDV seleccionados',pl.length);
+    pl.forEach(p=>pdf.fila(p,vis.has(norm(p))?'Visitado':'Pendiente',vis.has(norm(p))?pdf.VERDE:pdf.AMBAR));
+    pdf.fila('Planeado vs ejecutado',`${(e.pdv_visitados||[]).length} de ${pl.length} PDV visitados`);
+    if((e.pdv_no_planeados||[]).length)pdf.fila('PDV visitados no planeados',e.pdv_no_planeados.join(', '));
+  }else{
+    pdf.parrafo('Colonia / Torres / Empresas que visitará',m.destinos);
+    pdf.fila('Vendedor improductivo',m.vendedor_improductivo_id?(n.vendedor_improductivo||'ID '+m.vendedor_improductivo_id+' (sin nombre vigente)'):'Ninguno');
+    const ac=m.vendedor_improductivo_id==null?['No aplica',null]:(e.vendedor_improductivo_acompanado?['Sí',pdf.VERDE]:['Aún no',pdf.AMBAR]);
+    pdf.fila('¿Fue acompañado?',ac[0],ac[1]);
+  }
+  pdf.parrafo('Observaciones generales del día anterior',m.observaciones||'Sin observaciones');
+  pdf.seccion('Checklist de salida');
+  (CHECK_MINUTA[m.tipo]||[]).forEach(([k,l])=>{const [t,col]=siNo(chk[k]);pdf.fila(l,t,col)});
+  {const [t,col]=siNo(m.vehicular);pdf.fila('Checklist vehicular',t,col)}
+  pdf.seccion('Registro');
+  pdf.fila('Capturada por',`${n.capturo||'ID '+m.capturado_por_id} · ${ROL_TXT[m.capturado_por_rol]||m.capturado_por_rol||''}${String(m.capturado_por_id)!==String(m.responsable_id)?' (en espejo)':''}`);
+  pdf.fila('Fecha de creación',fechaHora(m.creado_en));
+  pdf.fila('Última actualización',fechaHora(m.actualizado_en));
+}
 
 // ---------------- Eventos
+$('btnMinutas').onclick=abrirMinutas;
 $('modal').addEventListener('click',e=>{if(e.target===$('modal'))closeModal()});
 $('loginBtn').onclick=login;$('password').addEventListener('keydown',e=>{if(e.key==='Enter')login()});
 $('logoutBtn').onclick=async()=>{if(timer)clearInterval(timer);await sb.auth.signOut();location.reload()};
