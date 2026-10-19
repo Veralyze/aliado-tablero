@@ -149,6 +149,7 @@ tr.group td{background:#f2f5fb;font-weight:1000;font-size:12px;color:#344054;tex
       </div>
     </section>
 
+    <section id="mando" class="table-panel hidden" style="margin-top:20px"></section>
     <section id="jornada" style="margin-top:20px"></section>
   </main>
 </div>
@@ -195,7 +196,8 @@ const esAcomp=v=>!v.motivo||v.motivo==='ACOMPANAMIENTO';
 const norm=v=>String(v??'').toUpperCase().trim();
 const chip=(t,c)=>`<span class="chip ${c||''}">${esc(t)}</span>`;
 const respPorId=id=>(data?.responsables||[]).find(r=>String(r.id_empleado)===String(id));
-const nombreResp=id=>respPorId(id)?.nombre||('ID '+id);
+const mandoPorId=id=>(data?.responsables_mando||[]).find(r=>String(r.id_empleado)===String(id));   // visitas_mando
+const nombreResp=id=>respPorId(id)?.nombre||mandoPorId(id)?.nombre||('ID '+id);
 function destino(v){
   if(v.pdv)return v.pdv;
   if(v.lugar)return LUGARES[v.lugar]||v.lugar;
@@ -344,6 +346,31 @@ function render(){
   $('clearSignal').classList.toggle('hidden',!senal);
   renderTabla(filas);
   renderJornada(v);
+  renderMando();
+}
+// visitas_mando: seccion SEPARADA de Gerencia / Regional (llaves responsables_mando / visitas_mando de aliado_v3_tablero_actividad).
+// No entra en KPIs, señales ni en la tabla de Supervisores / Seniors. Solo aplica el filtro de Sistema.
+function renderMando(){
+  const cont=$('mando'),rs=data?.responsables_mando||[];
+  if(!data||!rs.length){cont.classList.add('hidden');cont.innerHTML='';return}
+  const sys=$('systemFilter').value;
+  const resps=rs.filter(r=>sys==='TODOS'||r.sistema===sys||r.rol==='REGIONAL');
+  const ids=new Set(resps.map(r=>String(r.id_empleado)));
+  const vs=(data.visitas_mando||[]).filter(x=>ids.has(String(x.responsable_id)));
+  const fila=r=>{
+    const m=vs.filter(x=>String(x.responsable_id)===String(r.id_empleado)),c=m.filter(x=>x.estado==='CERRADA');
+    const ini=m.map(x=>x.inicio).filter(Boolean).sort(),fin=m.map(x=>x.fin||x.inicio).filter(Boolean).sort();
+    return `<tr class="mando-fila"><td><b>${esc(r.nombre||r.id_empleado)}</b></td><td>${esc(ROL_TXT[r.rol]||r.rol)}</td><td>${esc(r.sistema||'')}</td>
+      <td class="num">${m.length}</td><td class="num">${c.length}</td><td class="num">${m.length-c.length}</td><td class="num">${dur(c.reduce((n,x)=>n+Number(x.duracion_segundos||0),0))}</td>
+      <td>${esc(hora(ini[0]))}</td><td>${esc(hora(fin[fin.length-1]))}</td></tr>`;
+  };
+  cont.classList.remove('hidden');
+  cont.innerHTML=`<div class="table-head"><div><h3>Visitas de Gerencia y Regional</h3><small>Actividades registradas por ${ctx?.rol_funcional==='REGIONAL'?'ti y tus Gerentes':'ti'}. 
+Se muestran aparte: no cuentan en los indicadores de Supervisores y Seniors.</small></div></div>
+    <div class="table-wrap"><table><thead><tr><th>Responsable</th><th>Rol</th><th>Sistema</th><th>Actividades</th><th>Cerradas</th><th>Abiertas</th><th>Tiempo</th><th>Primera</th><th>Última</th></tr></thead>
+    <tbody>${resps.map(fila).join('')}</tbody></table></div>
+    <div style="margin-top:12px">${cronologia(vs,[],true)}</div>`;
+  cont.querySelectorAll('[data-visita]').forEach(el=>el.onclick=()=>abrirVisita(Number(el.dataset.visita)));
 }
 function renderTabla(filas){
   const visibles=filas.filter(f=>!senal||f.s[senal]);
@@ -432,7 +459,7 @@ function rows(pares){return `<div class="rows">${pares.filter(Boolean).map(([k,v
 const t=v=>esc(v==null||v===''?'—':v);
 const siNo=b=>b===true?chip('Sí','good'):(b===false?chip('No',''):'—');
 async function abrirVisita(id){
-  const v=(data?.visitas||[]).find(x=>Number(x.visita_id)===Number(id));if(!v)return;
+  const v=(data?.visitas||[]).find(x=>Number(x.visita_id)===Number(id))||(data?.visitas_mando||[]).find(x=>Number(x.visita_id)===Number(id));if(!v)return;
   visitaAbierta=id;
   $('modal').classList.add('show');
   $('modalTag').textContent=`${motivoTxt(v.motivo)} · ${fechaTxt(v.fecha)} · Folio ${String(v.visita_id).padStart(6,'0')}`;
